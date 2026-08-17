@@ -1,0 +1,212 @@
+---
+status: draft
+date: 2026-08-17
+topic: Polymarket-triggered NFL bookmaker value-bet alerting
+---
+
+# NFL slow markets
+
+## Goal
+
+During NFL preseason, Polymarket's NFL game-winner markets react within
+seconds to beat-reporter news (QB benchings, injuries, availability). UK/IE
+bookmakers (Paddy Power, bet365) are slower to reprice. This tool watches
+Polymarket continuously, and when a market's implied probability moves
+sharply, scrapes the bookmakers to check whether their odds still imply the
+old (stale) probability. If backing a bookmaker's current price is
+positive-EV against Polymarket's new fair price, it emails the details.
+
+Read-only against Polymarket throughout — no wallet, no order placement, no
+Polymarket position. Polymarket is used purely as a fast, efficient
+reference price; the only stake ever considered is at the bookmaker.
+
+## Non-goals
+
+- No cross-platform arbitrage (no Polymarket buy/sell, no hedged position
+  across both platforms). Polymarket is a price oracle only.
+- No spreads, totals, or player props. Game-winner (moneyline) markets only.
+- No persistence of price history or alert state across restarts. This is a
+  short-lived tool for one preseason window; losing ~10 minutes of rolling
+  window and any pending alert cooldowns on a crash/restart is an accepted
+  simplification, not a design goal to solve.
+- No public site / GitHub Pages publishing. This is a private alerting tool
+  for one recipient, unlike `horsey-scraper` and `golf-odds-scraper`.
+- No stake-sizing recommendation in the email beyond the computed edge — a
+  human decides bet size.
+- No US sportsbooks (DraftKings/FanDuel/BetMGM) in this iteration.
+
+## Architecture
+
+```
+Polymarket poll loop (30-60s, continuous process)
+   -> rolling 10-min sell-side (best-ask) price window, per market
+   -> |relative change vs. price ~10min ago| >= 5%
+        -> scrape Paddy Power + bet365 NFL odds (subprocess, isolated
+           from the poll loop so a scraper crash/hang can't kill polling)
+        -> match Polymarket market -> bookmaker event
+           (team names + kickoff time; no shared IDs across platforms)
+        -> per matched bookmaker leg:
+             true_prob   = Polymarket sell-side price at trigger time
+             edge        = decimal_odds * true_prob - 1
+        -> edge > threshold (default 2%) AND not in cooldown
+             -> email alert
+```
+
+The poll loop and the scrape pipeline are process-isolated (the pipeline
+runs as a subprocess invocation per trigger) so a Playwright hang or crash
+in a bookmaker scraper can never take down the continuously-running
+Polymarket poller.
+
+## Why sell-side (best ask), not midpoint or last-trade
+
+The "true probability" reference is the best-ask price of the relevant
+outcome token: the price at which you could actually acquire that outcome
+right now. Using the midpoint is noisier in thin preseason order books —
+one side of the book disappearing (not an actual trade) can swing the
+midpoint and produce a false-positive "move." Best-ask is used consistently
+for both:
+
+1. **Move detection** — the trailing 10-minute price series is the best-ask
+   at each poll.
+2. **The edge calculation** — `true_prob` at trigger time is the same
+   best-ask price, not a separate midpoint or last-trade figure.
+
+## Move detection formula
+
+Relative change, not percentage points:
+
+```
+relative_move = abs(price_now - price_10min_ago) / price_10min_ago
+trigger if relative_move >= 0.05
+```
+
+`price_10min_ago` is the oldest sample still inside the trailing 10-minute
+window (samples are taken every poll interval, so this is the sample
+closest to but not older than `now - 10min`). A market with no sample yet
+at least 10 minutes old cannot trigger (not enough history).
+
+## Modules
+
+Python (uv), styled on `horsey-scraper`'s per-concern layout:
+
+- **`polymarket_monitor/`**
+  - `client.py` — Gamma API (market discovery: NFL game-winner markets,
+    current week) + CLOB API (best-ask price per outcome token).
+  - `models.py` — `Market`, `PriceSample`.
+  - `detector.py` — pure function: given a market's sample deque and a new
+    sample, returns whether the trailing-10-min relative-move threshold is
+    crossed. Unit-testable without any network access.
+- **`paddypower_scraper/`** — NFL event odds. Reuses the
+  Playwright/internal-API approach from `horsey-scraper`'s
+  `paddypower_scraper`, retargeted from racing to NFL event pages.
+- **`bet365_scraper/`** — NFL event odds. No prior art in any existing repo;
+  bet365 is known for aggressive anti-bot/obfuscation. Built non-fatal from
+  day one (see Risks).
+- **`matching/`** — normalizes team names (e.g. "Kansas City Chiefs" /
+  "Chiefs" / "KC") and matches a Polymarket market to a bookmaker's event
+  listing by teams + kickoff time. Same shape as
+  `horsey-scraper`'s `arb_finder/matching.py` name-based matching.
+- **`arb_finder/`**
+  - `calculator.py` — pure function `value_bet_edge(decimal_odds: float,
+    true_prob: float) -> float`, returning `decimal_odds * true_prob - 1`.
+  - orchestration: joins a detected move to matched bookmaker prices,
+    computes edge per leg, filters by minimum edge threshold, ranks.
+- **`notifier/`** — Gmail SMTP (`smtplib`) sender. Formats one email per
+  alert batch: game, market, Polymarket move (old price, new price,
+  relative %), bookmaker + leg odds, computed edge.
+- **`common/`** — `jsonio.py`, `timeutil.py`, `credentials.py` (adapted from
+  `horsey-scraper`'s `common/`).
+- **`orchestrator/`** (`main.py`) — runs the poll loop; on trigger, invokes
+  scrape -> match -> arb -> notify; holds the in-memory cooldown map.
+
+## Config & credentials
+
+`~/.nfl-slow-markets/credentials.json`:
+
+```json
+{
+  "gmail_address": "rorydpg@gmail.com",
+  "gmail_app_password": "..."
+}
+```
+
+Same `chmod 600` + group/other-readable warning convention as
+`horsey-scraper`'s Betfair credentials file. No credentials needed for
+Polymarket (public read API) or, expected, for Paddy Power / bet365 odds
+pages (public, unauthenticated, matching how `horsey-scraper` scrapes
+PaddyPower's each-way prices today).
+
+Recipient (`rorydpg@gmail.com`) and thresholds (move %, min edge %, poll
+interval, cooldown window) are config values with defaults, not hardcoded:
+
+| Setting | Default |
+|---|---|
+| Poll interval | 30s |
+| Move threshold (relative) | 5% |
+| Trailing window | 10 min |
+| Minimum edge to alert | 2% |
+| Cooldown per (market, bookmaker) | 30 min |
+
+## Error handling
+
+- **Polymarket poll errors** (network, rate limit): caught, logged,
+  exponential backoff up to a cap, loop continues. Never crashes the
+  process.
+- **Bookmaker scrape errors**: each bookmaker scraped independently;
+  failure in one is logged and non-fatal (mirrors `horsey-scraper`'s
+  888/Novibet pattern) — a Paddy Power success still produces an alert even
+  if bet365 fails entirely.
+- **No match found** (Polymarket market has no corresponding event at a
+  given bookmaker, or the bookmaker's market is suspended): skip that leg,
+  log, continue — not an error.
+- **All legs fail for a trigger**: logged, no email sent.
+- **Cooldown**: same (market, bookmaker) pair does not re-alert within the
+  cooldown window even if the edge persists across multiple polls, to avoid
+  spamming an email per poll cycle while a mispricing sits open. Cooldown
+  resets are in-memory only (see Non-goals: no cross-restart persistence).
+
+## Testing
+
+Pytest, matching `horsey-scraper`'s convention (`pythonpath = ["src"]`,
+`testpaths = ["tests"]`, `integration` marker opt-in via `RUN_INTEGRATION=1`
+for live network/browser tests):
+
+- **Unit** (no network): `detector.py`'s trailing-window relative-move logic
+  (exact-5% boundary, oscillating prices, insufficient history, gaps in
+  polling); `calculator.py`'s `value_bet_edge`; `matching/`'s team-name
+  normalization and kickoff-time matching.
+- **Integration** (opt-in): live Polymarket API call confirming the client
+  can fetch current NFL game-winner markets; live scraper smoke tests for
+  Paddy Power / bet365 (expected to need periodic maintenance as site
+  structure changes, same as your other scrapers).
+- Email sending is mocked in tests; the test suite never sends a real
+  email.
+
+## Risks
+
+- **bet365 anti-bot**: no existing scraping pattern for bet365 anywhere in
+  your repos, and it's known for aggressive obfuscation/anti-automation
+  measures. Treated as best-effort and fully non-fatal — the tool is
+  designed to deliver value from Paddy Power alone if bet365 proves
+  infeasible or needs significant extra work.
+- **Polymarket API surface**: exact Gamma/CLOB endpoint shapes may have
+  shifted since this design was written; the implementation plan should
+  verify current endpoints against Polymarket's live API before building
+  `client.py`.
+- **In-memory state loss on restart**: accepted per Non-goals; worth
+  re-raising only if the tool needs to run unattended for longer than a
+  preseason window.
+
+## Deployment
+
+Run as a single long-lived process for the duration of preseason:
+
+```
+uv run python -m orchestrator
+```
+
+Intended to run in a persistent terminal/tmux session or as a
+launchd/systemd user service — no cron, no scheduled re-invocation (unlike
+`horsey-scraper`/`golf-odds-scraper`'s cron-driven batch model), since the
+rolling 10-minute window and cooldown state live in process memory and must
+not be torn down between polls.
