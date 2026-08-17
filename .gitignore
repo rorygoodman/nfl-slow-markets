@@ -1,2 +1,20 @@
 # Subagent-driven-development workspace (ledger, briefs, review packages)
 .superpowers/
+
+# Python
+.venv/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Credentials — never commit. Real file lives at ~/.nfl-slow-markets/credentials.json.
+credentials.json
+*.env
