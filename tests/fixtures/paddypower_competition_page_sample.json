@@ -58,7 +58,22 @@
         "marketType": "TOTAL_POINTS",
         "numberOfRunners": 2,
         "marketStatus": "OPEN",
-        "runners": []
+        "runners": [
+          {
+            "selectionId": 50400,
+            "runnerName": "Over 42.5",
+            "result": {"type": "AWAY"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.91}}}
+          },
+          {
+            "selectionId": 50401,
+            "runnerName": "Under 42.5",
+            "result": {"type": "HOME"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.91}}}
+          }
+        ]
       },
       "927.900000002": {
         "marketId": "927.900000002",
