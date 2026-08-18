@@ -14,7 +14,8 @@ bookmakers (Paddy Power, bet365) are slower to reprice. This tool watches
 Polymarket continuously, and when a market's implied probability moves
 sharply, scrapes the bookmakers to check whether their odds still imply the
 old (stale) probability. If backing a bookmaker's current price is
-positive-EV against Polymarket's new fair price, it emails the details.
+positive-EV against Polymarket's new fair price, it sends a push
+notification (via [ntfy](https://ntfy.sh)) with the details.
 
 Read-only against Polymarket throughout — no wallet, no order placement, no
 Polymarket position. Polymarket is used purely as a fast, efficient
@@ -31,8 +32,8 @@ reference price; the only stake ever considered is at the bookmaker.
   simplification, not a design goal to solve.
 - No public site / GitHub Pages publishing. This is a private alerting tool
   for one recipient, unlike `horsey-scraper` and `golf-odds-scraper`.
-- No stake-sizing recommendation in the email beyond the computed edge — a
-  human decides bet size.
+- No stake-sizing recommendation in the notification beyond the computed
+  edge — a human decides bet size.
 - No US sportsbooks (DraftKings/FanDuel/BetMGM) in this iteration.
 
 ## Architecture
@@ -49,7 +50,7 @@ Polymarket poll loop (30-60s, continuous process)
              true_prob   = Polymarket sell-side price at trigger time
              edge        = decimal_odds * true_prob - 1
         -> edge > threshold (default 2%) AND not in cooldown
-             -> email alert
+             -> ntfy push notification
 ```
 
 The poll loop and the scrape pipeline are process-isolated (the pipeline
@@ -111,9 +112,17 @@ Python (uv), styled on `horsey-scraper`'s per-concern layout:
     true_prob: float) -> float`, returning `decimal_odds * true_prob - 1`.
   - orchestration: joins a detected move to matched bookmaker prices,
     computes edge per leg, filters by minimum edge threshold, ranks.
-- **`notifier/`** — Gmail SMTP (`smtplib`) sender. Formats one email per
-  alert batch: game, market, Polymarket move (old price, new price,
-  relative %), bookmaker + leg odds, computed edge.
+- **`notifier/`** — ntfy (https://ntfy.sh) push sender: a plain HTTP POST
+  to `https://ntfy.sh/<topic>` per alert (no SMTP, no email account, no
+  app password). Formats one push per alert: title = game + move %, body =
+  market, Polymarket move (old price, new price, relative %), bookmaker +
+  leg odds, computed edge. Chosen over email for latency — Apple Mail only
+  gets true push for IMAP-push-capable accounts (iCloud/Exchange-style);
+  Gmail in Apple Mail is periodic fetch, not push, which is a real problem
+  for a tool whose entire value is catching a mispricing before it closes.
+  ntfy's iOS app is wired into APNs directly, so delivery is near-instant,
+  without standing up Apple Developer / APNs provider infrastructure for
+  one recipient.
 - **`common/`** — `jsonio.py`, `timeutil.py`, `credentials.py` (adapted from
   `horsey-scraper`'s `common/`).
 - **`orchestrator/`** (`main.py`) — runs the poll loop; on trigger, invokes
@@ -125,19 +134,24 @@ Python (uv), styled on `horsey-scraper`'s per-concern layout:
 
 ```json
 {
-  "gmail_address": "rorydpg@gmail.com",
-  "gmail_app_password": "..."
+  "ntfy_topic": "<long, random, generated per-deployment — never committed>"
 }
 ```
 
-Same `chmod 600` + group/other-readable warning convention as
-`horsey-scraper`'s Betfair credentials file. No credentials needed for
-Polymarket (public read API) or, expected, for Paddy Power / bet365 odds
-pages (public, unauthenticated, matching how `horsey-scraper` scrapes
-PaddyPower's each-way prices today).
+ntfy's free public server (`ntfy.sh`) has no sign-up or auth — the topic
+name is the only thing standing between the alerts and anyone who knows
+it, so it's generated long and random (not a guessable slug like
+`rory-nfl-arbs`) and treated as a secret: same `chmod 600` +
+group/other-readable warning convention as `horsey-scraper`'s Betfair
+credentials file, never logged, never committed. The recipient side is a
+one-time setup: install the ntfy iOS app and subscribe to this exact
+topic string. No credentials needed for Polymarket (public read API) or,
+expected, for Paddy Power / bet365 odds pages (public, unauthenticated,
+matching how `horsey-scraper` scrapes PaddyPower's each-way prices
+today).
 
-Recipient (`rorydpg@gmail.com`) and thresholds (move %, min edge %, poll
-interval, cooldown window) are config values with defaults, not hardcoded:
+Thresholds (move %, min edge %, poll interval, cooldown window) are
+config values with defaults, not hardcoded:
 
 | Setting | Default |
 |---|---|
@@ -159,11 +173,17 @@ interval, cooldown window) are config values with defaults, not hardcoded:
 - **No match found** (Polymarket market has no corresponding event at a
   given bookmaker, or the bookmaker's market is suspended): skip that leg,
   log, continue — not an error.
-- **All legs fail for a trigger**: logged, no email sent.
+- **All legs fail for a trigger**: logged, no notification sent.
+- **ntfy delivery failure** (network error, non-2xx from `ntfy.sh`): caught,
+  logged to stderr, non-fatal — a failed push must not crash the poll loop
+  or the trigger pipeline. The alert is lost for that trigger (no retry
+  queue — matches the project's short-lived, no-cross-restart-persistence
+  scope).
 - **Cooldown**: same (market, bookmaker) pair does not re-alert within the
   cooldown window even if the edge persists across multiple polls, to avoid
-  spamming an email per poll cycle while a mispricing sits open. Cooldown
-  resets are in-memory only (see Non-goals: no cross-restart persistence).
+  spamming a push notification per poll cycle while a mispricing sits
+  open. Cooldown resets are in-memory only (see Non-goals: no
+  cross-restart persistence).
 
 ## Testing
 
@@ -179,8 +199,8 @@ for live network/browser tests):
   can fetch current NFL game-winner markets; live scraper smoke tests for
   Paddy Power / bet365 (expected to need periodic maintenance as site
   structure changes, same as your other scrapers).
-- Email sending is mocked in tests; the test suite never sends a real
-  email.
+- The ntfy HTTP POST is mocked in tests; the test suite never sends a real
+  push notification.
 
 ## Risks
 
