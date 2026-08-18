@@ -85,6 +85,43 @@ def test_team_price_for_returns_none_when_team_not_in_game():
     assert team_price_for(COMMANDERS_LIONS_PADDYPOWER, "Raiders") is None
 
 
+def test_match_game_is_independent_of_team_order_within_the_bookmaker_game():
+    """The unordered team-pair matching property (frozenset comparison,
+    not positional) is the most important correctness property in this
+    module. This test demonstrates it synthetically, independent of any
+    fixture's incidental team ordering: two BookmakerGames for the same
+    team pair and kickoff, one with teams=(A, B) and one with teams=(B, A),
+    both matched successfully by the same Polymarket question."""
+    forward_order = BookmakerGame(
+        bookmaker="Paddy Power",
+        event_name="Chicago Bears @ Carolina Panthers",
+        kickoff_time="2026-09-13T17:00:00.000Z",
+        teams=(
+            BookmakerTeamPrice(team_name="Chicago Bears", decimal_odds=2.2),
+            BookmakerTeamPrice(team_name="Carolina Panthers", decimal_odds=1.7),
+        ),
+    )
+    reversed_order = BookmakerGame(
+        bookmaker="Paddy Power",
+        event_name="Carolina Panthers @ Chicago Bears",
+        kickoff_time="2026-09-13T17:00:00.000Z",
+        teams=(
+            BookmakerTeamPrice(team_name="Carolina Panthers", decimal_odds=1.7),
+            BookmakerTeamPrice(team_name="Chicago Bears", decimal_odds=2.2),
+        ),
+    )
+
+    matched_forward = match_game(
+        "Bears vs. Panthers", "2026-09-13 17:00:00+00", [forward_order],
+    )
+    matched_reversed = match_game(
+        "Bears vs. Panthers", "2026-09-13 17:00:00+00", [reversed_order],
+    )
+
+    assert matched_forward == forward_order
+    assert matched_reversed == reversed_order
+
+
 def test_full_three_way_real_match():
     """The flagship end-to-end proof: real Polymarket + real Paddy Power +
     real Novibet data for the same real game, matched and priced
