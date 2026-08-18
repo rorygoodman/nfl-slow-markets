@@ -31,7 +31,7 @@ def main() -> int:
     if not ok:
         print("Failed to send test notification", file=sys.stderr)
         return 1
-    print(f"Sent test notification to ntfy topic {creds.ntfy_topic!r}")
+    print("Sent test notification.")
     return 0
 
 

@@ -18,9 +18,8 @@ def send_notification(
     http = client or httpx.Client(timeout=10.0)
     try:
         response = http.post(
-            f"{NTFY_BASE_URL}/{topic}",
-            content=message.body.encode("utf-8"),
-            headers={"Title": message.title},
+            f"{NTFY_BASE_URL}/",
+            json={"topic": topic, "title": message.title, "message": message.body},
         )
         if response.status_code // 100 != 2:
             print(f"notifier: ntfy returned HTTP {response.status_code}", file=sys.stderr)
@@ -29,11 +28,10 @@ def send_notification(
     except Exception as exc:
         # Broad by design: this function's whole contract is "send a
         # best-effort notification, never let a failure here propagate."
-        # httpx.Client.post()/build_request() can raise things that are NOT
-        # httpx.HTTPError subclasses — e.g. httpx.InvalidURL (a plain
-        # Exception subclass) for a topic containing a non-printable ASCII
-        # character, or UnicodeEncodeError (a builtin) for a non-ASCII
-        # message title — and those must be caught here too.
+        # httpx's json= publish (unlike the old header-based API) handles
+        # UTF-8 titles/bodies and keeps the topic out of the URL entirely,
+        # but network errors (httpx.HTTPError subclasses) and other
+        # unexpected failures can still surface here, so keep this broad.
         print(f"notifier: failed to send ntfy notification: {exc}", file=sys.stderr)
         return False
     finally:

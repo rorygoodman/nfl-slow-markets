@@ -28,6 +28,21 @@ def test_raises_on_non_string_field():
         parse_credentials(json.dumps({"ntfy_topic": 123}))
 
 
+def test_raises_on_topic_with_trailing_newline():
+    with pytest.raises(ValueError, match="ntfy_topic"):
+        parse_credentials(json.dumps({"ntfy_topic": "my-topic\n"}))
+
+
+def test_raises_on_empty_string_topic():
+    with pytest.raises(ValueError, match="ntfy_topic"):
+        parse_credentials(json.dumps({"ntfy_topic": ""}))
+
+
+def test_raises_on_topic_containing_slash():
+    with pytest.raises(ValueError, match="ntfy_topic"):
+        parse_credentials(json.dumps({"ntfy_topic": "a/b"}))
+
+
 def test_raises_on_invalid_json():
     with pytest.raises(ValueError):
         parse_credentials("not json")
