@@ -14,6 +14,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 polymarket-monitor = "polymarket_monitor.poller:run"
+orchestrator = "orchestrator.main:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/common", "src/polymarket_monitor", "src/paddypower_scraper", "src/notifier", "src/novibet_scraper", "src/matching", "src/arb_finder", "src/orchestrator"]
