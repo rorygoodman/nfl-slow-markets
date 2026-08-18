@@ -135,3 +135,39 @@ def test_module_is_invocable_via_python_dash_m():
     )
     assert result.returncode == 1
     assert "usage" in result.stderr
+
+
+class _FakeSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def test_scrape_paddypower_degrades_to_empty_list_on_total_failure(monkeypatch, capsys):
+    monkeypatch.setattr(pipeline, "PaddyPowerBrowserSession", _FakeSession)
+
+    def _raise(session):
+        raise pipeline.AllCompetitionsFailedError("all competitions failed")
+
+    monkeypatch.setattr(pipeline, "scrape_paddypower", _raise)
+
+    result = pipeline._scrape_paddypower()
+
+    assert result == []
+    assert "paddypower scrape failed" in capsys.readouterr().err
+
+
+def test_scrape_novibet_degrades_to_empty_list_on_total_failure(monkeypatch, capsys):
+    monkeypatch.setattr(pipeline, "NovibetBrowserSession", _FakeSession)
+
+    def _raise(session):
+        raise pipeline.AllMarketViewGroupsFailedError("all market view groups failed")
+
+    monkeypatch.setattr(pipeline, "scrape_novibet", _raise)
+
+    result = pipeline._scrape_novibet()
+
+    assert result == []
+    assert "novibet scrape failed" in capsys.readouterr().err
