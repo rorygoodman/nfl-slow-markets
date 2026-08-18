@@ -26,8 +26,14 @@ def fetch_nfl_moneyline_markets(client: httpx.Client | None = None) -> list[Mark
             },
         )
         response.raise_for_status()
+        try:
+            payload = response.json()
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(payload, list):
+            return []
         snapshots = []
-        for raw in response.json():
+        for raw in payload:
             snapshot = _parse_market(raw)
             if snapshot is not None:
                 snapshots.append(snapshot)
