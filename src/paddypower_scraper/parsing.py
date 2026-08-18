@@ -43,7 +43,7 @@ def _parse_market(market: dict, events: dict) -> NFLGameOdds | None:
             competition_id=market["competitionId"],
             teams=(team_a, team_b),
         )
-    except (KeyError, TypeError, ValueError):
+    except (AttributeError, KeyError, TypeError, ValueError):
         return None
 
 
@@ -58,5 +58,5 @@ def _parse_runner(runner: dict) -> TeamPrice | None:
             decimal_odds=float(decimal_odds),
             home_or_away=runner["result"]["type"],
         )
-    except (KeyError, TypeError, ValueError):
+    except (AttributeError, KeyError, TypeError, ValueError):
         return None

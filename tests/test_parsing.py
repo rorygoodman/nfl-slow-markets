@@ -84,6 +84,54 @@ def test_skips_runner_missing_odds():
     assert parse_competition_page(raw) == []
 
 
+def test_skips_market_entry_that_is_none():
+    raw = {
+        "attachments": {
+            "events": {"1": {"eventId": 1, "name": "A @ B", "openDate": "2026-01-01T00:00:00.000Z"}},
+            "markets": {
+                "927.1": None,
+                "927.2": {
+                    "marketId": "927.2", "eventId": 1, "competitionId": 1,
+                    "marketType": "MONEY_LINE", "marketStatus": "OPEN",
+                    "numberOfRunners": 2,
+                    "runners": [
+                        {"selectionId": 1, "runnerName": "A", "result": {"type": "AWAY"},
+                         "runnerStatus": "ACTIVE",
+                         "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 2.0}}}},
+                        {"selectionId": 2, "runnerName": "B", "result": {"type": "HOME"},
+                         "runnerStatus": "ACTIVE",
+                         "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}},
+                    ],
+                },
+            },
+        }
+    }
+    games = parse_competition_page(raw)
+    assert [g.market_id for g in games] == ["927.2"]
+
+
+def test_skips_runner_entry_that_is_none():
+    raw = {
+        "attachments": {
+            "events": {"1": {"eventId": 1, "name": "A @ B", "openDate": "2026-01-01T00:00:00.000Z"}},
+            "markets": {
+                "927.1": {
+                    "marketId": "927.1", "eventId": 1, "competitionId": 1,
+                    "marketType": "MONEY_LINE", "marketStatus": "OPEN",
+                    "numberOfRunners": 2,
+                    "runners": [
+                        None,
+                        {"selectionId": 2, "runnerName": "B", "result": {"type": "HOME"},
+                         "runnerStatus": "ACTIVE",
+                         "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}},
+                    ],
+                }
+            },
+        }
+    }
+    assert parse_competition_page(raw) == []
+
+
 def test_skips_runner_with_inactive_status():
     raw = {
         "attachments": {

@@ -4,7 +4,7 @@ import pytest
 
 from paddypower_scraper.browser import BrowserFetchError
 from paddypower_scraper.models import NFLGameOdds, TeamPrice
-from paddypower_scraper.scraper import scrape_nfl_moneylines
+from paddypower_scraper.scraper import AllCompetitionsFailedError, scrape_nfl_moneylines
 
 GAME_A = NFLGameOdds(
     market_id="927.1", event_id="1", event_name="A @ B",
@@ -100,3 +100,72 @@ def test_one_competition_parse_failure_does_not_block_the_other(monkeypatch):
 def test_default_competition_ids_are_preseason_and_regular_season():
     from paddypower_scraper.scraper import DEFAULT_COMPETITION_IDS
     assert DEFAULT_COMPETITION_IDS == (11432305, 12282733)
+
+
+def test_raises_when_every_competition_fetch_fails(monkeypatch):
+    import paddypower_scraper.scraper as scraper_module
+
+    monkeypatch.setattr(scraper_module, "parse_competition_page", lambda raw: [GAME_B])
+    session = _FakeSession({
+        "url-preseason": BrowserFetchError("url-preseason", "HTTP 503"),
+        "url-regular": BrowserFetchError("url-regular", "HTTP 503"),
+    })
+    monkeypatch.setattr(scraper_module, "competition_page_url",
+                        lambda cid: "url-preseason" if cid == 11432305 else "url-regular")
+
+    with pytest.raises(AllCompetitionsFailedError):
+        scrape_nfl_moneylines(session, competition_ids=(11432305, 12282733))
+
+
+def test_raises_when_every_competition_parse_fails(monkeypatch):
+    import paddypower_scraper.scraper as scraper_module
+
+    def fake_parse(raw):
+        raise AttributeError("'list' object has no attribute 'get'")
+
+    monkeypatch.setattr(scraper_module, "parse_competition_page", fake_parse)
+    session = _FakeSession({
+        "url-preseason": {"marker": "preseason"},
+        "url-regular": {"marker": "regular"},
+    })
+    monkeypatch.setattr(scraper_module, "competition_page_url",
+                        lambda cid: "url-preseason" if cid == 11432305 else "url-regular")
+
+    with pytest.raises(AllCompetitionsFailedError):
+        scrape_nfl_moneylines(session, competition_ids=(11432305, 12282733))
+
+
+def test_raises_when_mix_of_fetch_and_parse_failures_leaves_nothing_usable(monkeypatch):
+    import paddypower_scraper.scraper as scraper_module
+
+    def fake_parse(raw):
+        raise AttributeError("'list' object has no attribute 'get'")
+
+    monkeypatch.setattr(scraper_module, "parse_competition_page", fake_parse)
+    session = _FakeSession({
+        "url-preseason": BrowserFetchError("url-preseason", "HTTP 503"),
+        "url-regular": {"marker": "regular"},
+    })
+    monkeypatch.setattr(scraper_module, "competition_page_url",
+                        lambda cid: "url-preseason" if cid == 11432305 else "url-regular")
+
+    with pytest.raises(AllCompetitionsFailedError):
+        scrape_nfl_moneylines(session, competition_ids=(11432305, 12282733))
+
+
+def test_does_not_raise_when_one_competition_succeeds_with_zero_games(monkeypatch):
+    """A competition that fetches and parses cleanly but legitimately has no
+    open markets (e.g. off-season) must NOT be treated as a failure."""
+    import paddypower_scraper.scraper as scraper_module
+
+    monkeypatch.setattr(scraper_module, "parse_competition_page", lambda raw: [])
+    session = _FakeSession({
+        "url-preseason": {"marker": "preseason"},
+        "url-regular": {"marker": "regular"},
+    })
+    monkeypatch.setattr(scraper_module, "competition_page_url",
+                        lambda cid: "url-preseason" if cid == 11432305 else "url-regular")
+
+    games = scrape_nfl_moneylines(session, competition_ids=(11432305, 12282733))
+
+    assert games == []
