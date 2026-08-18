@@ -10,7 +10,7 @@ topic: Polymarket-triggered NFL bookmaker value-bet alerting
 
 During NFL preseason, Polymarket's NFL game-winner markets react within
 seconds to beat-reporter news (QB benchings, injuries, availability). UK/IE
-bookmakers (Paddy Power, bet365) are slower to reprice. This tool watches
+bookmakers (Paddy Power, Novibet) are slower to reprice. This tool watches
 Polymarket continuously, and when a market's implied probability moves
 sharply, scrapes the bookmakers to check whether their odds still imply the
 old (stale) probability. If backing a bookmaker's current price is
@@ -42,7 +42,7 @@ reference price; the only stake ever considered is at the bookmaker.
 Polymarket poll loop (30-60s, continuous process)
    -> rolling 10-min sell-side (best-ask) price window, per market
    -> |relative change vs. price ~10min ago| >= 5%
-        -> scrape Paddy Power + bet365 NFL odds (subprocess, isolated
+        -> scrape Paddy Power + Novibet NFL odds (subprocess, isolated
            from the poll loop so a scraper crash/hang can't kill polling)
         -> match Polymarket market -> bookmaker event
            (team names + kickoff time; no shared IDs across platforms)
@@ -100,9 +100,11 @@ Python (uv), styled on `horsey-scraper`'s per-concern layout:
 - **`paddypower_scraper/`** — NFL event odds. Reuses the
   Playwright/internal-API approach from `horsey-scraper`'s
   `paddypower_scraper`, retargeted from racing to NFL event pages.
-- **`bet365_scraper/`** — NFL event odds. No prior art in any existing repo;
-  bet365 is known for aggressive anti-bot/obfuscation. Built non-fatal from
-  day one (see Risks).
+- **`novibet_scraper/`** — NFL event odds. Reuses the Cloudflare-warmup +
+  gateway-header approach from `horsey-scraper`'s `novibet_scraper`
+  (`x-gw-*` headers, `WARMUP_URL` + in-page `fetch()`, same shape as
+  `paddypower_scraper`'s `BrowserSession`), retargeted from horse racing's
+  `sport_id`/`group_id` to American football's.
 - **`matching/`** — normalizes team names (e.g. "Kansas City Chiefs" /
   "Chiefs" / "KC") and matches a Polymarket market to a bookmaker's event
   listing by teams + kickoff time. Same shape as
@@ -146,8 +148,8 @@ group/other-readable warning convention as `horsey-scraper`'s Betfair
 credentials file, never logged, never committed. The recipient side is a
 one-time setup: install the ntfy iOS app and subscribe to this exact
 topic string. No credentials needed for Polymarket (public read API) or,
-expected, for Paddy Power / bet365 odds pages (public, unauthenticated,
-matching how `horsey-scraper` scrapes PaddyPower's each-way prices
+expected, for Paddy Power / Novibet odds pages (public, unauthenticated,
+matching how `horsey-scraper` scrapes both bookmakers' each-way prices
 today).
 
 Thresholds (move %, min edge %, poll interval, cooldown window) are
@@ -169,7 +171,7 @@ config values with defaults, not hardcoded:
 - **Bookmaker scrape errors**: each bookmaker scraped independently;
   failure in one is logged and non-fatal (mirrors `horsey-scraper`'s
   888/Novibet pattern) — a Paddy Power success still produces an alert even
-  if bet365 fails entirely.
+  if Novibet fails entirely.
 - **No match found** (Polymarket market has no corresponding event at a
   given bookmaker, or the bookmaker's market is suspended): skip that leg,
   log, continue — not an error.
@@ -197,18 +199,27 @@ for live network/browser tests):
   normalization and kickoff-time matching.
 - **Integration** (opt-in): live Polymarket API call confirming the client
   can fetch current NFL game-winner markets; live scraper smoke tests for
-  Paddy Power / bet365 (expected to need periodic maintenance as site
+  Paddy Power / Novibet (expected to need periodic maintenance as site
   structure changes, same as your other scrapers).
 - The ntfy HTTP POST is mocked in tests; the test suite never sends a real
   push notification.
 
 ## Risks
 
-- **bet365 anti-bot**: no existing scraping pattern for bet365 anywhere in
-  your repos, and it's known for aggressive obfuscation/anti-automation
-  measures. Treated as best-effort and fully non-fatal — the tool is
-  designed to deliver value from Paddy Power alone if bet365 proves
-  infeasible or needs significant extra work.
+- **bet365 dropped from scope**: originally planned as the second
+  bookmaker, but has no existing scraping pattern anywhere in your repos
+  and is known for aggressive anti-bot/obfuscation. Replaced with Novibet,
+  which `horsey-scraper` already scrapes successfully for horse racing
+  (Cloudflare-warmup + `x-gw-*` gateway headers) — same reuse story as
+  Paddy Power, lower risk than attempting bet365 from scratch. bet365
+  coverage could be revisited later if Paddy Power + Novibet prove
+  insufficient.
+- **Novibet's NFL `sport_id`/`group_id` are unverified**: `horsey-scraper`'s
+  `novibet_scraper` targets horse racing's IDs; the implementation plan
+  must discover the correct American-football equivalents against the
+  live site (or via captured network requests, the same way
+  `paddypower_scraper`'s NFL-specific endpoint and competition IDs were
+  found) before building `client.py`/`api.py`.
 - **Polymarket API surface**: exact Gamma/CLOB endpoint shapes may have
   shifted since this design was written; the implementation plan should
   verify current endpoints against Polymarket's live API before building
