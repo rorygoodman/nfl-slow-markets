@@ -182,3 +182,85 @@ def test_edge_just_below_threshold_is_excluded():
 
 def test_no_games_in_either_list_returns_empty():
     assert find_value_bets(STALE_MOVE, [], []) == []
+
+
+def test_opposite_team_leg_reveals_a_value_bet_the_tracked_leg_missed():
+    """The flagship proof of this fix: Commanders' price FALLS (0.50->0.30),
+    so Lions' implied probability correspondingly RISES (0.50->0.70). A
+    bookmaker that hasn't repriced still offers both teams near their old
+    ~50/50 prices. The tracked (Commanders) leg correctly shows no edge —
+    but the untracked Lions leg is a real, large value bet that the old
+    tracked-only design would never have found."""
+    falling_commanders = MoveEvent(
+        market_id="m4", question="Commanders vs. Lions", tracked_outcome="Commanders",
+        old_price=0.50, new_price=0.30, relative_move=0.40,
+        old_at=NOW, new_at=NOW, game_start_time="2026-08-22 16:00:00+00",
+    )
+    stale_game = BookmakerGame(
+        bookmaker="Paddy Power", event_name="Washington Commanders @ Detroit Lions",
+        kickoff_time="2026-08-22T16:00:00.000Z",
+        teams=(
+            BookmakerTeamPrice(team_name="Washington Commanders", decimal_odds=2.00),
+            BookmakerTeamPrice(team_name="Detroit Lions", decimal_odds=2.00),
+        ),
+    )
+
+    alerts = find_value_bets(falling_commanders, [stale_game], [])
+
+    assert len(alerts) == 1
+    assert alerts[0].team_name == "Detroit Lions"
+    assert round(alerts[0].edge, 6) == 0.40
+    assert round(alerts[0].polymarket_old_price, 6) == 0.50
+    assert round(alerts[0].polymarket_new_price, 6) == 0.70
+    assert round(alerts[0].polymarket_relative_move, 6) == 0.40
+
+
+def test_opposite_leg_old_and_new_prices_are_the_binary_complement():
+    """Confirm the ValueBetAlert's Polymarket fields for the OPPOSITE
+    team's leg show that team's own (derived) move, not the tracked
+    team's move copied verbatim -- otherwise the notification would
+    describe the wrong team's price history."""
+    move = MoveEvent(
+        market_id="m5", question="Bears vs. Lions", tracked_outcome="Bears",
+        old_price=0.20, new_price=0.10, relative_move=0.50,
+        old_at=NOW, new_at=NOW, game_start_time="2026-11-26 18:00:00+00",
+    )
+    game = BookmakerGame(
+        bookmaker="Paddy Power", event_name="Chicago Bears @ Detroit Lions",
+        kickoff_time="2026-11-26T18:00:00.000Z",
+        teams=(
+            BookmakerTeamPrice(team_name="Chicago Bears", decimal_odds=10.0),
+            BookmakerTeamPrice(team_name="Detroit Lions", decimal_odds=1.20),
+        ),
+    )
+    alerts = find_value_bets(move, [game], [])
+
+    lions_alerts = [a for a in alerts if a.team_name == "Detroit Lions"]
+    assert len(lions_alerts) == 1
+    lions = lions_alerts[0]
+    assert round(lions.polymarket_old_price, 6) == 0.80   # 1 - 0.20
+    assert round(lions.polymarket_new_price, 6) == 0.90   # 1 - 0.10
+    assert round(lions.polymarket_relative_move, 6) == round((0.90 - 0.80) / 0.80, 6)
+
+
+def test_tracked_old_price_of_one_does_not_crash_and_skips_opposite_leg():
+    """Guards the division-by-zero edge case: if move.old_price is
+    exactly 1.0, the opposite leg's derived old_price would be 0.0,
+    which would divide-by-zero computing its relative move. The tracked
+    leg must still work normally; the opposite leg must be silently
+    skipped, never raise."""
+    move = MoveEvent(
+        market_id="m6", question="Bears vs. Lions", tracked_outcome="Bears",
+        old_price=1.0, new_price=0.95, relative_move=0.05,
+        old_at=NOW, new_at=NOW, game_start_time="2026-11-26 18:00:00+00",
+    )
+    game = BookmakerGame(
+        bookmaker="Paddy Power", event_name="Chicago Bears @ Detroit Lions",
+        kickoff_time="2026-11-26T18:00:00.000Z",
+        teams=(
+            BookmakerTeamPrice(team_name="Chicago Bears", decimal_odds=1.10),
+            BookmakerTeamPrice(team_name="Detroit Lions", decimal_odds=15.0),
+        ),
+    )
+    alerts = find_value_bets(move, [game], [])  # must not raise
+    assert all(a.team_name == "Chicago Bears" for a in alerts)
