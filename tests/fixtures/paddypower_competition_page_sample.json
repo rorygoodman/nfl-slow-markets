@@ -1,0 +1,92 @@
+{
+  "attachments": {
+    "events": {
+      "35607159": {
+        "eventId": 35607159,
+        "name": "Chicago Bears @ Detroit Lions",
+        "eventTypeId": 6423,
+        "competitionId": 12282733,
+        "countryCode": "GB",
+        "openDate": "2026-11-26T18:00:00.000Z",
+        "videoAvailable": false
+      },
+      "35950163": {
+        "eventId": 35950163,
+        "name": "Atlanta Falcons @ Indianapolis Colts",
+        "eventTypeId": 6423,
+        "competitionId": 11432305,
+        "countryCode": "GB",
+        "openDate": "2026-08-22T17:00:00.000Z",
+        "videoAvailable": false
+      }
+    },
+    "markets": {
+      "927.383543353": {
+        "marketId": "927.383543353",
+        "eventTypeId": 6423,
+        "competitionId": 12282733,
+        "eventId": 35607159,
+        "marketName": "Match Betting",
+        "marketTime": "2026-11-26T18:00:00.000Z",
+        "marketType": "MONEY_LINE",
+        "numberOfRunners": 2,
+        "marketStatus": "OPEN",
+        "runners": [
+          {
+            "selectionId": 50194,
+            "runnerName": "Chicago Bears",
+            "result": {"type": "AWAY"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 2.1}}}
+          },
+          {
+            "selectionId": 50193,
+            "runnerName": "Detroit Lions",
+            "result": {"type": "HOME"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.727272727272727}}}
+          }
+        ]
+      },
+      "927.900000001": {
+        "marketId": "927.900000001",
+        "eventTypeId": 6423,
+        "competitionId": 11432305,
+        "eventId": 35950163,
+        "marketName": "Total Points",
+        "marketTime": "2026-08-22T17:00:00.000Z",
+        "marketType": "TOTAL_POINTS",
+        "numberOfRunners": 2,
+        "marketStatus": "OPEN",
+        "runners": []
+      },
+      "927.900000002": {
+        "marketId": "927.900000002",
+        "eventTypeId": 6423,
+        "competitionId": 11432305,
+        "eventId": 35950163,
+        "marketName": "Moneyline",
+        "marketTime": "2026-08-22T17:00:00.000Z",
+        "marketType": "MONEY_LINE",
+        "numberOfRunners": 2,
+        "marketStatus": "SUSPENDED",
+        "runners": [
+          {
+            "selectionId": 50300,
+            "runnerName": "Atlanta Falcons",
+            "result": {"type": "AWAY"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}
+          },
+          {
+            "selectionId": 50301,
+            "runnerName": "Indianapolis Colts",
+            "result": {"type": "HOME"},
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}
+          }
+        ]
+      }
+    }
+  }
+}
