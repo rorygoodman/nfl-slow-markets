@@ -171,3 +171,45 @@ def test_scrape_novibet_degrades_to_empty_list_on_total_failure(monkeypatch, cap
 
     assert result == []
     assert "novibet scrape failed" in capsys.readouterr().err
+
+
+def test_scrape_paddypower_degrades_to_empty_list_on_playwright_error(monkeypatch, capsys):
+    """A Playwright error raised inside BrowserSession.__enter__ (e.g. a
+    warmup navigation timeout) is not an AllCompetitionsFailedError, but
+    must still degrade to [] rather than crash the pipeline. Simulated
+    here with a plain RuntimeError/TimeoutError through the same code
+    path that previously only caught the scraper's own domain error."""
+
+    class _RaisingSession:
+        def __enter__(self):
+            raise TimeoutError("warmup navigation timed out")
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(pipeline, "PaddyPowerBrowserSession", _RaisingSession)
+
+    result = pipeline._scrape_paddypower()
+
+    assert result == []
+    assert "paddypower scrape failed" in capsys.readouterr().err
+
+
+def test_scrape_novibet_degrades_to_empty_list_on_playwright_error(monkeypatch, capsys):
+    """Same as the paddypower case above, but for novibet: a non-domain
+    exception (simulating a Playwright warmup failure) must also degrade
+    to [] instead of propagating and crashing the whole pipeline run."""
+
+    class _RaisingSession:
+        def __enter__(self):
+            raise RuntimeError("browser launch failed")
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(pipeline, "NovibetBrowserSession", _RaisingSession)
+
+    result = pipeline._scrape_novibet()
+
+    assert result == []
+    assert "novibet scrape failed" in capsys.readouterr().err

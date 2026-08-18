@@ -90,7 +90,13 @@ def _scrape_paddypower() -> list[BookmakerGame]:
     try:
         with PaddyPowerBrowserSession() as session:
             games = scrape_paddypower(session)
-    except AllCompetitionsFailedError as exc:
+    except Exception as exc:
+        # Broad by design: BrowserSession.__enter__ drives Playwright's
+        # own startup/navigation (sync_playwright().start(), launch(),
+        # goto(), wait_for_load_state()), any of which can raise
+        # Playwright's own exception types, not just this scraper's
+        # AllCompetitionsFailedError. Each bookmaker must fail
+        # independently and non-fatally, so catch everything here.
         print(f"orchestrator: paddypower scrape failed: {exc}", file=sys.stderr)
         return []
     return [from_paddypower(g) for g in games]
@@ -100,7 +106,11 @@ def _scrape_novibet() -> list[BookmakerGame]:
     try:
         with NovibetBrowserSession() as session:
             games = scrape_novibet(session)
-    except AllMarketViewGroupsFailedError as exc:
+    except Exception as exc:
+        # Broad by design: see _scrape_paddypower's comment above — this
+        # also has to catch Playwright's own exception types raised
+        # during BrowserSession's startup/navigation, not just
+        # AllMarketViewGroupsFailedError.
         print(f"orchestrator: novibet scrape failed: {exc}", file=sys.stderr)
         return []
     return [from_novibet(g) for g in games]

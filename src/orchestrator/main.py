@@ -78,18 +78,34 @@ def poll_once(client: httpx.Client, detector: MoveDetector) -> bool:
     return True
 
 
+_in_flight: dict[str, subprocess.Popen] = {}
+
+
 def trigger_pipeline(event: MoveEvent) -> subprocess.Popen | None:
     """Fire-and-forget: spawn `python -m orchestrator.pipeline
-    <move-event-json>` as a subprocess and return immediately. Inherits
-    the parent's stdout/stderr (no redirection), so pipeline output
-    interleaves with poll-loop logging in the same terminal. Never
-    raises — a failure to even spawn the subprocess is logged and
-    swallowed, matching this module's "a pipeline problem can never
-    take down polling" contract."""
+    <move-event-json>` as a subprocess and return immediately. Skips the
+    spawn if a pipeline run for this market_id is already in flight —
+    MoveDetector re-emits the same move on every poll for ~10 minutes,
+    and without this guard a single move would spawn ~20 concurrent
+    scrapes against the same bookmakers. Inherits the parent's
+    stdout/stderr (no redirection), so pipeline output interleaves with
+    poll-loop logging in the same terminal. Never raises — any failure
+    to spawn is logged and swallowed, matching this module's "a pipeline
+    problem can never take down polling" contract."""
+    running = _in_flight.get(event.market_id)
+    if running is not None:
+        if running.poll() is None:
+            logger.info("Pipeline already running for market %s, skipping trigger", event.market_id)
+            return None
+        del _in_flight[event.market_id]
+
     try:
-        return subprocess.Popen(
+        popen = subprocess.Popen(
             [sys.executable, "-m", "orchestrator.pipeline", move_event_to_json(event)]
         )
-    except OSError as exc:
+    except Exception as exc:
         logger.warning("Failed to spawn orchestrator pipeline: %s", exc)
         return None
+
+    _in_flight[event.market_id] = popen
+    return popen

@@ -36,9 +36,16 @@ def load_cooldowns(path: Path) -> dict[str, str]:
 
 
 def save_cooldowns(path: Path, cooldowns: dict[str, str]) -> None:
+    """Writes via a temporary sibling file + atomic rename rather than an
+    in-place write, so a concurrent load_cooldowns() in another pipeline
+    subprocess can never observe a truncated/partial JSON payload
+    mid-write (which would otherwise fail-open to {} and silently wipe
+    out every previously recorded cooldown for that reader)."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(cooldowns, indent=2))
+        tmp_path = path.parent / (path.name + ".tmp")
+        tmp_path.write_text(json.dumps(cooldowns, indent=2))
+        tmp_path.replace(path)  # atomic rename on POSIX
     except OSError as exc:
         print(f"orchestrator: failed to save cooldown file {path}: {exc}", file=sys.stderr)
 
