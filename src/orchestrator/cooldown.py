@@ -10,6 +10,7 @@ non-goal."""
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -35,8 +36,11 @@ def load_cooldowns(path: Path) -> dict[str, str]:
 
 
 def save_cooldowns(path: Path, cooldowns: dict[str, str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cooldowns, indent=2))
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(cooldowns, indent=2))
+    except OSError as exc:
+        print(f"orchestrator: failed to save cooldown file {path}: {exc}", file=sys.stderr)
 
 
 def _key(market_id: str, bookmaker: str) -> str:

@@ -80,3 +80,13 @@ def test_save_then_load_round_trips_and_creates_parent_dirs(tmp_path):
     result = load_cooldowns(path)
 
     assert result == cooldowns
+
+
+def test_save_cooldowns_fails_open_on_os_error(tmp_path, capsys):
+    blocker = tmp_path / "not_a_directory"
+    blocker.write_text("")
+    path = blocker / "cooldown.json"  # blocker is a file, not a dir -> mkdir(parents=True) raises
+
+    save_cooldowns(path, {"market-1|Paddy Power": "2026-08-18T12:00:00+00:00"})
+
+    assert "failed to save cooldown file" in capsys.readouterr().err
