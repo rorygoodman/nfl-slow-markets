@@ -15,7 +15,10 @@ class NFLGameOdds:
     """One NFL moneyline market: both teams' current decimal odds."""
     market_id: int
     event_id: str
-    event_name: str          # e.g. "HOU Texans vs LV Raiders"
+    event_name: str          # "{home} vs {away}" — competitor1 is HOME
+                              # (opposite of paddypower_scraper's "Away @ Home"
+                              # convention — do not assume the two scrapers
+                              # order teams the same way)
     kickoff_time: str        # ISO 8601 with UTC offset, from the item's startDate
     market_view_group_id: int
     teams: tuple[TeamPrice, TeamPrice]
