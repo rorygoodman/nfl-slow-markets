@@ -11,10 +11,10 @@ _TEST_ALERT = ValueBetAlert(
     game_name="[TEST] Raiders vs. Texans",
     team_name="Raiders",
     bookmaker="Paddy Power",
-    decimal_odds=2.10,
+    decimal_odds=2.00,
     polymarket_old_price=0.50,
-    polymarket_new_price=0.40,
-    polymarket_relative_move=0.20,
+    polymarket_new_price=0.525,
+    polymarket_relative_move=0.05,
     edge=0.05,
 )
 

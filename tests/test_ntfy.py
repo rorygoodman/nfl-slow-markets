@@ -48,3 +48,29 @@ def test_returns_false_on_network_error(capsys):
 
     assert ok is False
     assert "notifier" in capsys.readouterr().err
+
+
+def test_returns_false_on_invalid_topic_with_control_character(capsys):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"id": "abc"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    ok = send_notification(NtfyMessage(title="t", body="b"), "my-topic\n", client=client)
+
+    assert ok is False
+    assert "notifier" in capsys.readouterr().err
+
+
+def test_returns_false_on_non_ascii_title(capsys):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"id": "abc"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    ok = send_notification(
+        NtfyMessage(title="Café Bet Alert", body="b"), "topic", client=client
+    )
+
+    assert ok is False
+    assert "notifier" in capsys.readouterr().err

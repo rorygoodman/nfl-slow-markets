@@ -26,7 +26,14 @@ def send_notification(
             print(f"notifier: ntfy returned HTTP {response.status_code}", file=sys.stderr)
             return False
         return True
-    except httpx.HTTPError as exc:
+    except Exception as exc:
+        # Broad by design: this function's whole contract is "send a
+        # best-effort notification, never let a failure here propagate."
+        # httpx.Client.post()/build_request() can raise things that are NOT
+        # httpx.HTTPError subclasses — e.g. httpx.InvalidURL (a plain
+        # Exception subclass) for a topic containing a non-printable ASCII
+        # character, or UnicodeEncodeError (a builtin) for a non-ASCII
+        # message title — and those must be caught here too.
         print(f"notifier: failed to send ntfy notification: {exc}", file=sys.stderr)
         return False
     finally:
