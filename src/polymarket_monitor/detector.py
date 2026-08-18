@@ -34,6 +34,7 @@ class MoveDetector:
         tracked_outcome: str,
         price: float,
         now: datetime,
+        game_start_time: "str | None" = None,
     ) -> MoveEvent | None:
         state = self._states.get(market_id)
         if state is None:
@@ -65,4 +66,5 @@ class MoveDetector:
             relative_move=relative_move,
             old_at=reference.timestamp,
             new_at=now,
+            game_start_time=game_start_time,
         )

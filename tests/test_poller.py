@@ -77,3 +77,16 @@ def test_poll_once_returns_false_and_logs_warning_on_fetch_error(monkeypatch, ca
 
     assert ok is False
     assert "Polymarket fetch failed" in caplog.text
+
+
+def test_poll_once_passes_game_start_time_through_to_the_detector(monkeypatch):
+    snapshot = MarketSnapshot(
+        market_id="1", question="Raiders vs. Texans", tracked_outcome="Raiders",
+        best_ask=0.51, game_start_time="2026-08-21 00:00:00+00",
+    )
+    monkeypatch.setattr(poller, "fetch_nfl_moneyline_markets", lambda client: [snapshot])
+    detector = _RecordingDetector()
+
+    poller.poll_once(client=object(), detector=detector)
+
+    assert detector.calls[0]["game_start_time"] == "2026-08-21 00:00:00+00"

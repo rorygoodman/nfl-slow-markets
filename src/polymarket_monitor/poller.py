@@ -49,6 +49,7 @@ def poll_once(client: httpx.Client, detector: MoveDetector) -> bool:
             tracked_outcome=snapshot.tracked_outcome,
             price=snapshot.best_ask,
             now=now,
+            game_start_time=snapshot.game_start_time,
         )
         if event is not None:
             logger.info(

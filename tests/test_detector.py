@@ -85,3 +85,27 @@ def test_markets_are_tracked_independently():
     )
     assert event_m2 is not None
     assert event_m1 is None
+
+
+def test_observe_without_game_start_time_defaults_to_none():
+    detector = MoveDetector()
+    detector.observe("m1", "Raiders vs. Texans", "Raiders", 0.50, T0)
+    event = detector.observe(
+        "m1", "Raiders vs. Texans", "Raiders", 0.60, T0 + timedelta(minutes=10)
+    )
+    assert event is not None
+    assert event.game_start_time is None
+
+
+def test_observe_threads_game_start_time_into_the_move_event():
+    detector = MoveDetector()
+    detector.observe(
+        "m1", "Raiders vs. Texans", "Raiders", 0.50, T0,
+        game_start_time="2026-08-21 00:00:00+00",
+    )
+    event = detector.observe(
+        "m1", "Raiders vs. Texans", "Raiders", 0.60, T0 + timedelta(minutes=10),
+        game_start_time="2026-08-21 00:00:00+00",
+    )
+    assert event is not None
+    assert event.game_start_time == "2026-08-21 00:00:00+00"

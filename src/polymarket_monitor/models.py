@@ -32,3 +32,4 @@ class MoveEvent:
     relative_move: float
     old_at: datetime
     new_at: datetime
+    game_start_time: "str | None" = None
