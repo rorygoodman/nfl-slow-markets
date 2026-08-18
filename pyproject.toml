@@ -16,7 +16,7 @@ build-backend = "hatchling.build"
 polymarket-monitor = "polymarket_monitor.poller:run"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/polymarket_monitor", "src/paddypower_scraper"]
+packages = ["src/common", "src/polymarket_monitor", "src/paddypower_scraper"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
