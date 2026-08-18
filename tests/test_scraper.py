@@ -73,6 +73,30 @@ def test_one_competition_fetch_failure_does_not_block_the_other(monkeypatch):
     assert games == [GAME_B]
 
 
+def test_one_competition_parse_failure_does_not_block_the_other(monkeypatch):
+    import paddypower_scraper.scraper as scraper_module
+
+    def fake_parse(raw):
+        if raw == {"marker": "preseason"}:
+            # Simulates the real crash: a top-level shape parse_competition_page
+            # doesn't expect (e.g. a list instead of a dict) blows up with
+            # AttributeError on `raw.get(...)`.
+            raise AttributeError("'list' object has no attribute 'get'")
+        return [GAME_B]
+
+    monkeypatch.setattr(scraper_module, "parse_competition_page", fake_parse)
+    session = _FakeSession({
+        "url-preseason": {"marker": "preseason"},
+        "url-regular": {"marker": "regular"},
+    })
+    monkeypatch.setattr(scraper_module, "competition_page_url",
+                        lambda cid: "url-preseason" if cid == 11432305 else "url-regular")
+
+    games = scrape_nfl_moneylines(session, competition_ids=(11432305, 12282733))
+
+    assert games == [GAME_B]
+
+
 def test_default_competition_ids_are_preseason_and_regular_season():
     from paddypower_scraper.scraper import DEFAULT_COMPETITION_IDS
     assert DEFAULT_COMPETITION_IDS == (11432305, 12282733)

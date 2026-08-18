@@ -25,5 +25,11 @@ def scrape_nfl_moneylines(
             print(f"paddypower_scraper: competition {competition_id} fetch failed: {exc}",
                   file=sys.stderr)
             continue
-        games.extend(parse_competition_page(raw))
+        try:
+            parsed = parse_competition_page(raw)
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            print(f"paddypower_scraper: competition {competition_id} parse failed: {exc}",
+                  file=sys.stderr)
+            continue
+        games.extend(parsed)
     return games
