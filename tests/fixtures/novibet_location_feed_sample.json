@@ -1,0 +1,60 @@
+[
+  {
+    "marketViewId": 6956808,
+    "marketViewGroupId": 5813718,
+    "rootMarketViewGroupId": 4372609,
+    "path": "preseason",
+    "betViews": [
+      {
+        "items": [
+          {
+            "eventBetContextId": 47678025,
+            "additionalCaptions": {
+              "competitor1": "HOU Texans",
+              "competitor2": "LV Raiders"
+            },
+            "startDate": "2026-08-21T00:00:00+00:00",
+            "path": "preseason/hou-texans-lv-raiders",
+            "markets": [
+              {
+                "marketId": 1709836937,
+                "betTypeSysname": "AMERICAN_FOOTBALL_MATCH_RESULT_NO_DRAW",
+                "betItems": [
+                  {"id": "7127413176", "code": "1", "price": 1.78, "oddsText": "3/4", "isAvailable": true},
+                  {"id": "7127413177", "code": "2", "price": 2.0, "oddsText": "1/1", "isAvailable": true}
+                ]
+              },
+              {
+                "marketId": 1710057840,
+                "betTypeSysname": "AMERICAN_FOOTBALL_UNDER_OVER",
+                "betItems": [
+                  {"id": "7128401868", "code": "O", "price": 1.83, "oddsText": "5/6", "isAvailable": true},
+                  {"id": "7128401869", "code": "U", "price": 1.82, "oddsText": "4/5", "isAvailable": true}
+                ]
+              }
+            ]
+          },
+          {
+            "eventBetContextId": 47678099,
+            "additionalCaptions": {
+              "competitor1": "PIT Steelers",
+              "competitor2": "NY Jets"
+            },
+            "startDate": "2026-08-21T23:00:00+00:00",
+            "path": "preseason/pit-steelers-ny-jets",
+            "markets": [
+              {
+                "marketId": 1709836999,
+                "betTypeSysname": "AMERICAN_FOOTBALL_MATCH_RESULT_NO_DRAW",
+                "betItems": [
+                  {"id": "7127413200", "code": "1", "price": 1.55, "oddsText": "8/15", "isAvailable": true},
+                  {"id": "7127413201", "code": "2", "price": 2.4, "oddsText": "7/5", "isAvailable": false}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
